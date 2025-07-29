@@ -1,22 +1,20 @@
-# CLAUDE.md
+# Investie Development Guide for Claude
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
-
-## 🎯 Project Overview
-
-**Investie** is an AI-powered market summary app for beginner-to-intermediate US stock investors. This is a mobile-first React Native app providing concise, actionable market information through card-based UI.
-
-**Current Status**: Documentation-only repository. No code has been implemented yet.
+## 🎯 Project Context
+**Investie** is an AI-powered market summary app for beginner-to-intermediate US stock investors. You are assisting with development of a mobile-first React Native app that provides concise, actionable market information through intuitive card-based UI.
 
 ### Key Project Details
-- **Phase 1 MVP**: 11 summary cards (1 Market Summary + 10 Stock Cards)
-- **Target Stocks**: AAPL, TSLA, MSFT, GOOGL, AMZN, NVDA, META, NFLX, AVGO, AMD
-- **Update Schedule**: Twice daily (6 AM & 4 PM EST)
+- **Phase 1**: MVP with summary cards (11 cards total)
+  - 1 Market Summary Card (Fear & Greed, VIX, rates, CPI, unemployment, S&P500)
+  - 10 Stock Cards (AAPL, TSLA, MSFT, GOOGL, AMZN, NVDA, META, NFLX, AVGO, AMD)
+- **Phase 2**: Detailed view mode with charts and deeper analysis
 - **Target Users**: Beginner-to-intermediate US stock investors
+- **Core Value**: 2-3 minute market overview, updated twice daily (6 AM, 4 PM EST)
 
 ## 🛠 Technology Stack
 
 ### Frontend (React Native + Expo)
+```typescript
 - React Native (Expo managed workflow)
 - TypeScript (strict mode)
 - NativeWind (Tailwind CSS for React Native)
@@ -24,21 +22,24 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - React Query (API caching)
 - Recharts (charts and sparklines)
 - React Navigation v6
+```
 
 ### Backend (NestJS)
+```typescript
 - Node.js + NestJS
 - PostgreSQL (primary storage)
 - Redis (caching layer)
 - Firebase Auth (social login)
 - JWT tokens (session management)
+```
 
-### External APIs
-- **Google Finance API** (Primary): Stock prices, P/E ratios, VIX, market cap
+### APIs & Services
+- **Google Finance API** ⭐ (Primary): Stock prices, P/E ratios, VIX, market cap
 - **FRED API**: Economic indicators (rates, CPI, unemployment)
-- **Claude API**: AI summaries, Fear & Greed search
+- **Claude API**: AI summaries, infographics, Fear & Greed search
 - **Google News API**: Stock-related news
 
-## 📁 Planned Project Structure
+## 📁 Project Structure
 
 ```
 investie/
@@ -72,52 +73,11 @@ investie/
 └── docs/
 ```
 
-## 🏗 Development Commands
+## 🎨 Component Architecture
 
-**Note**: This repository currently contains only documentation. The following commands will be relevant once the project is initialized:
-
-### Project Setup (Future)
-```bash
-# Initialize monorepo
-npm create turbo@latest investie --package-manager npm
-
-# Mobile app setup
-cd apps/mobile
-npx create-expo-app --template
-
-# Backend setup
-cd apps/backend
-nest new backend
-```
-
-### Development Commands (Future)
-```bash
-# Install dependencies
-npm install
-
-# Start mobile development
-cd apps/mobile && npx expo start
-
-# Start backend development
-cd apps/backend && npm run start:dev
-
-# Run all tests
-npm run test
-
-# Type checking
-npm run typecheck
-
-# Linting
-npm run lint
-
-# Build for production
-npm run build
-```
-
-## 🎨 Core Data Structures
-
-### Market Summary Card
+### Card Components
 ```typescript
+// Market Summary Card Structure
 interface MarketSummaryData {
   fearGreedIndex: {
     value: number;
@@ -144,10 +104,8 @@ interface MarketSummaryData {
   };
   sp500Sparkline: number[];
 }
-```
 
-### Stock Card Structure
-```typescript
+// Stock Card Structure
 interface StockCardData {
   symbol: string;
   name: string;
@@ -186,8 +144,60 @@ interface StockCardData {
 - **4:00 PM**: Post-market summary generation
 
 ### Caching Layers
-- **Client (React Native)**: React Query Cache (5 min), AsyncStorage (user prefs)
-- **Backend (NestJS)**: Redis L1 Cache (5 min stock data), Redis L2 Cache (12h AI summaries), PostgreSQL (persistent)
+```typescript
+// Client (React Native)
+- React Query Cache (API responses) - 5 minutes for stock data
+- AsyncStorage (user preferences, watchlist)
+- Image Cache (Expo)
+
+// Backend (NestJS)
+- Redis L1 Cache (5-minute stock data)
+- Redis L2 Cache (12-hour AI summaries)
+- PostgreSQL (persistent storage, daily snapshots)
+```
+
+### API Integration Pattern
+```typescript
+// Service Layer Example
+@Injectable()
+export class MarketDataService {
+  constructor(
+    private googleFinanceService: GoogleFinanceService,
+    private fredService: FredService,
+    private claudeService: ClaudeService,
+    private cacheService: CacheService,
+  ) {}
+
+  async getMarketSummary(): Promise<MarketSummaryData> {
+    const cacheKey = 'market-summary';
+    const cached = await this.cacheService.get(cacheKey);
+    
+    if (cached) return cached;
+
+    const [fearGreed, vix, rates, cpi, unemployment, sp500] = await Promise.all([
+      this.claudeService.getFearGreedIndex(),
+      this.googleFinanceService.getVIX(),
+      this.fredService.getInterestRates(),
+      this.fredService.getCPI(),
+      this.fredService.getUnemploymentRate(),
+      this.googleFinanceService.getSP500Data(),
+    ]);
+
+    const summary = {
+      fearGreedIndex: fearGreed,
+      vix,
+      interestRate: {
+        ...rates,
+        aiOutlook: await this.claudeService.generateRateOutlook(rates),
+      },
+      // ... rest of the data
+    };
+
+    await this.cacheService.set(cacheKey, summary, 43200); // 12 hours
+    return summary;
+  }
+}
+```
 
 ## 🎯 Development Guidelines
 
@@ -209,9 +219,9 @@ export const useMarketData = () => {
   });
 };
 
-// Component Pattern with error handling
+// Component Pattern
 export const MarketSummaryCard: React.FC = () => {
-  const { data, isLoading, error, refetch } = useMarketData();
+  const { data, isLoading, error } = useMarketData();
   
   if (isLoading) return <SkeletonCard />;
   if (error) return <ErrorCard retry={() => refetch()} />;
@@ -228,16 +238,7 @@ export const MarketSummaryCard: React.FC = () => {
 
 ### Styling Conventions (NativeWind)
 ```typescript
-// Consistent color coding for financial data
-const COLORS = {
-  positive: '#10B981', // green-500
-  negative: '#EF4444', // red-500
-  neutral: '#6B7280',  // gray-500
-  fear: '#EF4444',     // red-500
-  greed: '#10B981',    // green-500
-} as const;
-
-// Standard card styles
+// Use consistent spacing and colors
 const styles = {
   card: 'bg-white rounded-xl p-4 shadow-sm mb-4',
   cardTitle: 'text-lg font-semibold text-gray-900 mb-2',
@@ -246,9 +247,48 @@ const styles = {
   neutral: 'text-gray-600',
   sparkline: 'h-8 w-full',
 };
+
+// Color coding for financial data
+const COLORS = {
+  positive: '#10B981', // green-500
+  negative: '#EF4444', // red-500
+  neutral: '#6B7280',  // gray-500
+  fear: '#EF4444',     // red-500
+  greed: '#10B981',    // green-500
+} as const;
 ```
 
-## 🔐 Security Requirements
+## 📊 Error Handling & Loading States
+
+### Error Patterns
+```typescript
+// Result Pattern for API calls
+type Result<T, E = Error> = 
+  | { success: true; data: T }
+  | { success: false; error: E };
+
+// User-friendly error messages
+const ERROR_MESSAGES = {
+  NETWORK_ERROR: 'Unable to fetch latest data. Please check your connection.',
+  API_LIMIT: 'Market data temporarily unavailable. Please try again later.',
+  INVALID_SYMBOL: 'Stock symbol not found.',
+  CACHE_MISS: 'Loading fresh data...',
+} as const;
+```
+
+### Loading States
+```typescript
+// Skeleton components for better UX
+export const SkeletonCard: React.FC = () => (
+  <View className="bg-white rounded-xl p-4 shadow-sm mb-4">
+    <View className="h-4 bg-gray-200 rounded w-1/3 mb-2 animate-pulse" />
+    <View className="h-6 bg-gray-200 rounded w-1/2 mb-4 animate-pulse" />
+    <View className="h-8 bg-gray-200 rounded w-full animate-pulse" />
+  </View>
+);
+```
+
+## 🔐 Security & Performance
 
 ### API Security
 - Store API keys in environment variables
@@ -256,27 +296,31 @@ const styles = {
 - Use HTTPS for all communications
 - Validate all external API responses
 
-### Environment Variables (Future)
-```bash
-GOOGLE_FINANCE_API_KEY=
-FRED_API_KEY=
-CLAUDE_API_KEY=
-GOOGLE_NEWS_API_KEY=
-DATABASE_URL=
-REDIS_URL=
-FIREBASE_CONFIG=
+### Performance Optimization
+```typescript
+// Memoization for expensive calculations
+const formatCurrency = useMemo(() => 
+  new Intl.NumberFormat('en-US', {
+    style: 'currency',
+    currency: 'USD',
+  }), []
+);
+
+// Lazy loading for charts
+const SparklineChart = lazy(() => import('./SparklineChart'));
+
+// Image optimization
+<Image
+  source={{ uri: logoUrl }}
+  style={{ width: 24, height: 24 }}
+  resizeMode="contain"
+  cachePolicy="memory-disk"
+/>
 ```
 
-## 🧪 Testing Strategy (Future)
+## 🧪 Testing Strategy
 
-### Key Testing Areas
-- Financial data calculations and formatting
-- API response validation and error handling
-- Component rendering with different data states
-- Caching mechanisms and data freshness
-- User authentication flows
-
-### Testing Pattern
+### Unit Testing
 ```typescript
 // Test financial calculations
 describe('formatCurrency', () => {
@@ -299,19 +343,25 @@ describe('StockCard', () => {
 });
 ```
 
-## 📋 Development Team Structure
+## 🚀 Deployment Considerations
 
-### Module-Based Development (4 developers)
-- **Developer A**: Market Summary Module (FRED API, Fear & Greed, macro indicators)
-- **Developer B**: Stock Cards Module (Group 1) - AAPL, TSLA, MSFT, GOOGL
-- **Developer C**: Stock Cards Module (Group 2) - AMZN, NVDA, META, NFLX  
-- **Developer D**: Authentication + Stock Cards (Group 3) - AVGO, AMD + Firebase Auth
+### Environment Configuration
+```typescript
+// Environment variables
+GOOGLE_FINANCE_API_KEY=
+FRED_API_KEY=
+CLAUDE_API_KEY=
+GOOGLE_NEWS_API_KEY=
+DATABASE_URL=
+REDIS_URL=
+FIREBASE_CONFIG=
+```
 
-### Integration Points
-- Shared TypeScript interfaces and types
-- Common UI component library
-- Standardized API service patterns
-- Unified caching strategies
+### Performance Monitoring
+- Implement crash reporting with Sentry
+- Monitor API response times
+- Track user engagement metrics
+- Set up alerts for API failures
 
 ## 📱 Mobile-First Design Principles
 
@@ -323,6 +373,7 @@ describe('StockCard', () => {
 
 ### Accessibility
 ```typescript
+// Accessibility props
 <TouchableOpacity
   accessible={true}
   accessibilityLabel="Apple stock card"
@@ -333,20 +384,4 @@ describe('StockCard', () => {
 </TouchableOpacity>
 ```
 
-## 🚀 Future Phases
-
-### Phase 2: Enhanced Features
-- Detailed view mode with advanced charts
-- Personalized watchlists
-- Push notifications for market events
-- Portfolio tracking capabilities
-
-### Phase 3: Platform Expansion
-- Web application using Next.js
-- Premium subscription features
-- Social sharing and community features
-- Advanced AI analysis reports
-
----
-
-**Important**: This repository currently contains only planning documentation. Actual implementation has not begun. When development starts, this file should be updated with specific build commands, testing procedures, and any project-specific patterns that emerge during development.
+This guide should help maintain consistency across the development team while building the Investie app. Focus on the mobile-first approach, financial data accuracy, and user experience optimization.
