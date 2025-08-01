@@ -1,0 +1,8 @@
+{
+  "fearGreedIndex": { "value": 38, "status": "fear" },
+  "vix": { "value": 17.5, "status": "medium" },
+  "interestRate": { "value": 5.33, "aiOutlook": "The Fed is expected to hold rates steady through the next quarter." },
+  "cpi": { "value": 3.4, "monthOverMonth": 0.1, "direction": "up" },
+  "unemploymentRate": { "value": 3.9, "monthOverMonth": 0.1 },
+  "sp500Sparkline": { "data": [4780, 4785, 4790, 4770, 4795, 4805, 4800], "weeklyTrend": "up" }
+}
