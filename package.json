@@ -1,0 +1,42 @@
+{
+  "name": "investie",
+  "version": "0.0.0",
+  "license": "MIT",
+  "private": true,
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "concurrently \"npm:dev:mobile\" \"npm:dev:web\" \"npm:dev:backend\"",
+    "dev:mobile": "nx run mobile:start",
+    "dev:web": "nx run web:dev",
+    "dev:backend": "nx run backend:start:dev",
+    "typecheck": "tsc -b",
+    "build": "nx run-many --target=build --all",
+    "test": "nx run-many --target=test --all",
+    "lint": "nx run-many --target=lint --all",
+    "format": "nx run-many --target=format --all"
+  },
+  "devDependencies": {
+    "@nx/eslint-plugin": "latest",
+    "@nx/js": "latest",
+    "@nx/nest": "latest",
+    "@nx/next": "latest",
+    "@nx/react-native": "latest",
+    "@nx/workspace": "latest",
+    "@typescript-eslint/eslint-plugin": "latest",
+    "@typescript-eslint/parser": "latest",
+    "concurrently": "^8.2.2",
+    "eslint": "^8.57.0",
+    "nx": "latest",
+    "prettier": "^3.1.1",
+    "typescript": "^5.3.3"
+  },
+  "dependencies": {
+    "tslib": "^2.6.2"
+  },
+  "nx": {
+    "includedScripts": []
+  }
+}
